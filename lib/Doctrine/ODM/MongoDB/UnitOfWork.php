@@ -666,7 +666,7 @@ class UnitOfWork implements PropertyChangedListener
      * @param ClassMetadata $class The class descriptor of the document.
      * @param object $document The document for which to compute the changes.
      */
-    public function computeChangeSet(ClassMetadata $class, $document)
+    public function computeChangeSet(ClassMetadata $class, $document, $recompute = false)
     {
         if ( ! $class->isInheritanceTypeNone()) {
             $class = $this->dm->getClassMetadata(get_class($document));
@@ -677,7 +677,7 @@ class UnitOfWork implements PropertyChangedListener
             $class->invokeLifecycleCallbacks(Events::preFlush, $document);
         }
 
-        $this->computeOrRecomputeChangeSet($class, $document);
+        $this->computeOrRecomputeChangeSet($class, $document, $recompute);
     }
 
     /**
@@ -816,7 +816,7 @@ class UnitOfWork implements PropertyChangedListener
             if (isset($mapping['reference']) || isset($mapping['embedded'])) {
                 $value = $class->reflFields[$mapping['fieldName']]->getValue($document);
                 if ($value !== null) {
-                    $this->computeAssociationChanges($document, $mapping, $value);
+                    $this->computeAssociationChanges($document, $mapping, $value, $recompute);
                     if (isset($mapping['reference'])) {
                         continue;
                     }
@@ -896,7 +896,7 @@ class UnitOfWork implements PropertyChangedListener
      * @param mixed $value The value of the association.
      * @throws \InvalidArgumentException
      */
-    private function computeAssociationChanges($parentDocument, $mapping, $value)
+    private function computeAssociationChanges($parentDocument, $mapping, $value, $recompute = false)
     {
         $isNewParentDocument = isset($this->documentInsertions[spl_object_hash($parentDocument)]);
         $class = $this->dm->getClassMetadata(get_class($parentDocument));
@@ -942,10 +942,10 @@ class UnitOfWork implements PropertyChangedListener
                 }
                 $this->persistNew($targetClass, $entry);
                 $this->setParentAssociation($entry, $mapping, $parentDocument, $path);
-                $this->computeChangeSet($targetClass, $entry);
+                $this->computeChangeSet($targetClass, $entry, $recompute);
             } elseif ($state == self::STATE_MANAGED && $targetClass->isEmbeddedDocument) {
                 $this->setParentAssociation($entry, $mapping, $parentDocument, $path);
-                $this->computeChangeSet($targetClass, $entry);
+                $this->computeChangeSet($targetClass, $entry, $recompute);
             } elseif ($state == self::STATE_REMOVED) {
                 throw new \InvalidArgumentException("Removed document detected during flush: "
                     . self::objToStr($entry) . ". Remove deleted documents from associations.");
